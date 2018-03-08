@@ -54,6 +54,9 @@
  * @brief   Application entry point.
  */
 
+SemaphoreHandle_t g_led_green;
+SemaphoreHandle_t g_led_blue;
+
 void PORTC_IRQHandler()
 {
 	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);
@@ -62,7 +65,12 @@ void PORTC_IRQHandler()
 
 void PORTA_IRQHandler()
 {
+	BaseType_t xHigherPriorityTaskWoken;
 	PORT_ClearPinsInterruptFlags(PORTA, 1 << 4);
+	xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR( g_led_green, &xHigherPriorityTaskWoken );
+	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+
 
 }
 
@@ -70,7 +78,8 @@ void led_green_task(void * pvParameters)
 {
 	for(;;)
 	{
-		led_Green();
+		led_green();
+		xSemaphoreTake(g_led_green,portMAX_DELAY);
 		led_off();
 	}
 }
@@ -79,6 +88,7 @@ void led_blue_task(void * pvParameters)
 {
 	for(;;)
 	{
+		xSemaphoreGive(g_led_green);
 		led_blue();
 		led_off();
 
