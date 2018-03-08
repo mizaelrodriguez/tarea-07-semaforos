@@ -87,13 +87,20 @@ void led_green_task(void * pvParameters)
 
 void led_blue_task(void * pvParameters)
 {
+	uint8_t turn_on_times;
 	for(;;)
 	{
-		xSemaphoreTake(g_led_blue,portMAX_DELAY);
-		GPIO_TogglePinsOutput(GPIOB,1<<22);
-
+		GPIO_TogglePinsOutput(GPIOE,1<<26);
+		if (uxSemaphoreGetCount(g_led_blue) == 10)
+		{
+			for(turn_on_times = 0; turn_on_times <= 10; turn_on_times++)
+			{
+				xSemaphoreTake(g_led_blue,portMAX_DELAY);
+			}
+		}
 	}
 }
+
 int main(void) {
 
   	/* Init board hardware. */
@@ -107,6 +114,7 @@ int main(void) {
 	CLOCK_EnableClock(kCLOCK_PortA);
 	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortC);
+	CLOCK_EnableClock(kCLOCK_PortE);
 
 	/*Configurar el puerto para encender un LED*/
 	/* Input pin PORT configuration */
@@ -145,29 +153,30 @@ int main(void) {
 	PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptFallingEdge);
 	/* Sets the configuration */
 	PORT_SetPinConfig(PORTB, 21, &config_led_blue);
-	PORT_SetPinConfig(PORTB, 22, &config_led_green);
+	PORT_SetPinConfig(PORTE, 26, &config_led_green);
 	PORT_SetPinConfig(PORTA, 4, &config_switch_sw3);
 	PORT_SetPinConfig(PORTC, 6, &config_switch_sw2);
 
 	/* Output pin configuration */
 	gpio_pin_config_t led_config_blue = { kGPIO_DigitalOutput, 1 };
 	gpio_pin_config_t led_config_green = { kGPIO_DigitalOutput, 1 };
-	gpio_pin_config_t switch_config_sw3 = { kGPIO_DigitalInput, 0 };
-	gpio_pin_config_t switch_config_sw2 = { kGPIO_DigitalInput, 0 };
+	gpio_pin_config_t switch_config_sw3 = { kGPIO_DigitalInput, 1 };
+	gpio_pin_config_t switch_config_sw2 = { kGPIO_DigitalInput, 1 };
 
 	/* Sets the configuration */
 	GPIO_PinInit(GPIOB, 21, &led_config_blue);
-	GPIO_PinInit(GPIOB, 22, &led_config_green);
+	GPIO_PinInit(GPIOE, 26, &led_config_green);
 	GPIO_PinInit(GPIOA, 4, &switch_config_sw3);
 	GPIO_PinInit(GPIOC, 6, &switch_config_sw2);
 
-
+	GPIO_WritePinOutput(GPIOB, 21, 1);
+	GPIO_WritePinOutput(GPIOE, 26, 1);
 
 	NVIC_EnableIRQ(PORTA_IRQn);
 	NVIC_EnableIRQ(PORTC_IRQn);
 
 	NVIC_SetPriority(PORTA_IRQn,4);
-	NVIC_SetPriority(PORTB_IRQn,5);
+	NVIC_SetPriority(PORTC_IRQn,5);
 
 
 	g_led_green = xSemaphoreCreateBinary();
