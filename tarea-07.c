@@ -57,12 +57,6 @@
 SemaphoreHandle_t g_led_green;
 SemaphoreHandle_t g_led_blue;
 
-void PORTC_IRQHandler()
-{
-	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);
-
-}
-
 void PORTA_IRQHandler()
 {
 	BaseType_t xHigherPriorityTaskWoken;
@@ -70,17 +64,24 @@ void PORTA_IRQHandler()
 	xHigherPriorityTaskWoken = pdFALSE;
 	xSemaphoreGiveFromISR( g_led_green, &xHigherPriorityTaskWoken );
 	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-
-
 }
+
+void PORTC_IRQHandler()
+{
+	BaseType_t xHigherPriorityTaskWoken;
+	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);
+	xHigherPriorityTaskWoken = pdFALSE;
+	xSemaphoreGiveFromISR( g_led_blue, &xHigherPriorityTaskWoken );
+	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+
 
 void led_green_task(void * pvParameters)
 {
 	for(;;)
 	{
-		led_green();
 		xSemaphoreTake(g_led_green,portMAX_DELAY);
-		led_off();
+		GPIO_TogglePinsOutput(GPIOB,1<<21);
 	}
 }
 
@@ -88,9 +89,8 @@ void led_blue_task(void * pvParameters)
 {
 	for(;;)
 	{
-		xSemaphoreGive(g_led_green);
-		led_blue();
-		led_off();
+		xSemaphoreTake(g_led_blue,portMAX_DELAY);
+		GPIO_TogglePinsOutput(GPIOB,1<<22);
 
 	}
 }
@@ -104,9 +104,8 @@ int main(void) {
     BOARD_InitDebugConsole();
 
 	/*Habilitar el reloj SCG*/
-	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortA);
-	CLOCK_EnableClock(kCLOCK_PortE);
+	CLOCK_EnableClock(kCLOCK_PortB);
 	CLOCK_EnableClock(kCLOCK_PortC);
 
 	/*Configurar el puerto para encender un LED*/
@@ -119,15 +118,6 @@ int main(void) {
 	kPORT_MuxAsGpio, /*Modo GPIO*/
 	kPORT_UnlockRegister }; /**/
 
-	/*Configurar el puerto para encender un LED*/
-	/* Input pin PORT configuration */
-	port_pin_config_t config_led_red = { kPORT_PullDisable, /*Resistencias deshabilitadas*/
-	kPORT_SlowSlewRate, /*SlewRate menor velocidad*/
-	kPORT_PassiveFilterEnable, /*Filtro habilitado*/
-	kPORT_OpenDrainDisable, /**/
-	kPORT_LowDriveStrength, /**/
-	kPORT_MuxAsGpio, /*Modo GPIO*/
-	kPORT_UnlockRegister }; /**/
 
 	/*Configurar el puerto para encender un LED*/
 	/* Input pin PORT configuration */
@@ -155,31 +145,36 @@ int main(void) {
 	PORT_SetPinInterruptConfig(PORTC, 6, kPORT_InterruptFallingEdge);
 	/* Sets the configuration */
 	PORT_SetPinConfig(PORTB, 21, &config_led_blue);
-	PORT_SetPinConfig(PORTB, 22, &config_led_red);
-	PORT_SetPinConfig(PORTE, 26, &config_led_green);
+	PORT_SetPinConfig(PORTB, 22, &config_led_green);
 	PORT_SetPinConfig(PORTA, 4, &config_switch_sw3);
 	PORT_SetPinConfig(PORTC, 6, &config_switch_sw2);
 
-	NVIC_EnableIRQ(PORTA_IRQn);
-	NVIC_EnableIRQ(PORTC_IRQn);
-
 	/* Output pin configuration */
 	gpio_pin_config_t led_config_blue = { kGPIO_DigitalOutput, 1 };
-	gpio_pin_config_t led_config_red = { kGPIO_DigitalOutput, 1 };
 	gpio_pin_config_t led_config_green = { kGPIO_DigitalOutput, 1 };
 	gpio_pin_config_t switch_config_sw3 = { kGPIO_DigitalInput, 0 };
 	gpio_pin_config_t switch_config_sw2 = { kGPIO_DigitalInput, 0 };
 
 	/* Sets the configuration */
 	GPIO_PinInit(GPIOB, 21, &led_config_blue);
-	GPIO_PinInit(GPIOB, 22, &led_config_red);
-	GPIO_PinInit(GPIOE, 26, &led_config_green);
+	GPIO_PinInit(GPIOB, 22, &led_config_green);
 	GPIO_PinInit(GPIOA, 4, &switch_config_sw3);
 	GPIO_PinInit(GPIOC, 6, &switch_config_sw2);
 
 
+
+	NVIC_EnableIRQ(PORTA_IRQn);
+	NVIC_EnableIRQ(PORTC_IRQn);
+
+	NVIC_SetPriority(PORTA_IRQn,4);
+	NVIC_SetPriority(PORTB_IRQn,5);
+
+
+	g_led_green = xSemaphoreCreateBinary();
+	g_led_blue = xSemaphoreCreateBinary();
+
 	xTaskCreate(led_green_task, "sw2", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
-	xTaskCreate(led_blue_task, "sw3", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-2, 0);
+	xTaskCreate(led_blue_task, "sw3", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
 
 	vTaskStartScheduler();
 
