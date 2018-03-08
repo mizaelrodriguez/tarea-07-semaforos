@@ -39,6 +39,13 @@
 #include "clock_config.h"
 #include "MK64F12.h"
 #include "fsl_debug_console.h"
+#include "fsl_port.h"
+#include "fsl_gpio.h"
+#include "led.h"
+#include "fsl_pit.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
 /* TODO: insert other include files here. */
 
 /* TODO: insert other definitions and declarations here. */
@@ -46,6 +53,37 @@
 /*
  * @brief   Application entry point.
  */
+
+void PORTC_IRQHandler()
+{
+	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);
+
+}
+
+void PORTA_IRQHandler()
+{
+	PORT_ClearPinsInterruptFlags(PORTA, 1 << 4);
+
+}
+
+void led_green_task(void * pvParameters)
+{
+	for(;;)
+	{
+		led_Green();
+		led_off();
+	}
+}
+
+void led_blue_task(void * pvParameters)
+{
+	for(;;)
+	{
+		led_blue();
+		led_off();
+
+	}
+}
 int main(void) {
 
   	/* Init board hardware. */
@@ -129,9 +167,16 @@ int main(void) {
 	GPIO_PinInit(GPIOA, 4, &switch_config_sw3);
 	GPIO_PinInit(GPIOC, 6, &switch_config_sw2);
 
+
+	xTaskCreate(led_green_task, "sw2", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
+	xTaskCreate(led_blue_task, "sw3", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-2, 0);
+
+	vTaskStartScheduler();
+
     /* Enter an infinite loop, just incrementing a counter. */
-    while(1) {
-        i++ ;
+    for(;;)
+    {
+
     }
     return 0 ;
 }
