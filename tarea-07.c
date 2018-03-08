@@ -32,7 +32,7 @@
  * @file    MK64FN1M0xxx12_Project.c
  * @brief   Application entry point.
  */
-#include <stdio.h>
+
 #include "board.h"
 #include "peripherals.h"
 #include "pin_mux.h"
@@ -87,12 +87,12 @@ void led_green_task(void * pvParameters)
 
 void led_blue_task(void * pvParameters)
 {
-	uint8_t turn_on_times;
+	static uint8_t turn_on_times;
 	for(;;)
 	{
-		GPIO_TogglePinsOutput(GPIOE,1<<26);
 		if (uxSemaphoreGetCount(g_led_blue) == 10)
 		{
+			GPIO_TogglePinsOutput(GPIOE,1<<26);
 			for(turn_on_times = 0; turn_on_times <= 10; turn_on_times++)
 			{
 				xSemaphoreTake(g_led_blue,portMAX_DELAY);
@@ -179,11 +179,12 @@ int main(void) {
 	NVIC_SetPriority(PORTC_IRQn,5);
 
 
+	g_led_blue = xSemaphoreCreateCounting(10, 0);
 	g_led_green = xSemaphoreCreateBinary();
-	g_led_blue = xSemaphoreCreateBinary();
 
-	xTaskCreate(led_green_task, "sw2", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
 	xTaskCreate(led_blue_task, "sw3", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
+	xTaskCreate(led_green_task, "sw2", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
+
 
 	vTaskStartScheduler();
 
