@@ -20,14 +20,7 @@
 */
 void led_green()
 {
-	/*Escribimos el led segun el valor de state*/
-	GPIO_WritePinOutput (GPIOB, 21, 1);
-
-	/*Escribimos el led segun el valor de state*/
-	GPIO_WritePinOutput (GPIOB, 22, 1);
-
-	/*Escribimos el led segun el valor de state*/
-	GPIO_WritePinOutput (GPIOE, 26, 0);
+	GPIO_TogglePinsOutput(GPIOB,1<<21);
 }
 
 /*
@@ -50,14 +43,7 @@ void led_red()
 */
 void led_blue()
 {
-	/*Escribimos el led segun el valor de state*/
-	GPIO_WritePinOutput (GPIOB, 21, 0);
-
-	/*Escribimos el led segun el valor de state*/
-	GPIO_WritePinOutput (GPIOB, 22, 1);
-
-	/*Escribimos el led segun el valor de state*/
-	GPIO_WritePinOutput (GPIOE, 26, 1);
+	GPIO_TogglePinsOutput(GPIOE,1<<26);
 }
 
 void led_off()

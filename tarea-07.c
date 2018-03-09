@@ -46,33 +46,36 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
-/* TODO: insert other include files here. */
-
-/* TODO: insert other definitions and declarations here. */
-
-/*
- * @brief   Application entry point.
- */
 
 SemaphoreHandle_t g_led_green;
 SemaphoreHandle_t g_led_blue;
 
-void PORTA_IRQHandler()
-{
-	BaseType_t xHigherPriorityTaskWoken;
-	PORT_ClearPinsInterruptFlags(PORTA, 1 << 4);
-	xHigherPriorityTaskWoken = pdFALSE;
-	xSemaphoreGiveFromISR( g_led_green, &xHigherPriorityTaskWoken );
-	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
-}
 
 void PORTC_IRQHandler()
 {
-	BaseType_t xHigherPriorityTaskWoken;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 	PORT_ClearPinsInterruptFlags(PORTC, 1 << 6);
-	xHigherPriorityTaskWoken = pdFALSE;
 	xSemaphoreGiveFromISR( g_led_blue, &xHigherPriorityTaskWoken );
 	portYIELD_FROM_ISR( xHigherPriorityTaskWoken );
+}
+
+
+void PORTA_IRQHandler()
+{
+	BaseType_t xHigherPriorityTaskWoken  = pdFALSE;;
+	PORT_ClearPinsInterruptFlags(PORTA, 1 << 4);
+	/* The event has occurred, use the semaphore to unblock the task so the task
+	 can process the event. */
+	xSemaphoreGiveFromISR(g_led_green, &xHigherPriorityTaskWoken);
+
+	/* Clear the interrupt here. */
+
+	 /* Now the task has been unblocked a context switch should be performed if
+	 xHigherPriorityTaskWoken is equal to pdTRUE. NOTE: The syntax required to perform
+	 a context switch from an ISR varies from port to port, and from compiler to
+	 compiler. Check the web documentation and examples for the port being used to
+	 find the syntax required for your application. */
+	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 
@@ -80,8 +83,8 @@ void led_green_task(void * pvParameters)
 {
 	for(;;)
 	{
-		xSemaphoreTake(g_led_green,portMAX_DELAY);
-		GPIO_TogglePinsOutput(GPIOB,1<<21);
+		xSemaphoreTake(g_led_green, portMAX_DELAY);
+		led_green();
 	}
 }
 
@@ -92,8 +95,8 @@ void led_blue_task(void * pvParameters)
 	{
 		if (uxSemaphoreGetCount(g_led_blue) == 10)
 		{
-			GPIO_TogglePinsOutput(GPIOE,1<<26);
-			for(turn_on_times = 0; turn_on_times <= 10; turn_on_times++)
+			led_blue();
+			for(turn_on_times = 0; turn_on_times < 10; turn_on_times++)
 			{
 				xSemaphoreTake(g_led_blue,portMAX_DELAY);
 			}
@@ -169,20 +172,20 @@ int main(void) {
 	GPIO_PinInit(GPIOA, 4, &switch_config_sw3);
 	GPIO_PinInit(GPIOC, 6, &switch_config_sw2);
 
-	GPIO_WritePinOutput(GPIOB, 21, 1);
-	GPIO_WritePinOutput(GPIOE, 26, 1);
+	//GPIO_WritePinOutput(GPIOB, 21, 1);
+	//GPIO_WritePinOutput(GPIOE, 26, 1);
 
 	NVIC_EnableIRQ(PORTA_IRQn);
 	NVIC_EnableIRQ(PORTC_IRQn);
 
-	NVIC_SetPriority(PORTA_IRQn,4);
-	NVIC_SetPriority(PORTC_IRQn,5);
+	NVIC_SetPriority(PORTA_IRQn,2);
+	NVIC_SetPriority(PORTC_IRQn,3);
 
 
 	g_led_blue = xSemaphoreCreateCounting(10, 0);
 	g_led_green = xSemaphoreCreateBinary();
 
-	xTaskCreate(led_blue_task, "sw3", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
+	xTaskCreate(led_blue_task, "sw3", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-2, 0);
 	xTaskCreate(led_green_task, "sw2", configMINIMAL_STACK_SIZE, 0, configMAX_PRIORITIES-1, 0);
 
 
@@ -193,5 +196,5 @@ int main(void) {
     {
 
     }
-    return 0 ;
+    return 0;
 }
